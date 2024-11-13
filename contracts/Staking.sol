@@ -12,7 +12,9 @@ contract Staking {
 	mapping(address => uint256) public balance;
 
     /// @notice emit Staked event with user address and amount
+    /// @notice emit UnStaked event with address and amountToUnstake
 	event Staked(address indexed user, uint256 amount);
+	event UnStaked(address indexed, uint256 amountToUnstake);
     
     /// @param amount represent staked amount
     /// @param timeStamp represent time of staking 
@@ -21,14 +23,37 @@ contract Staking {
 		uint256 timeStamp;
 	}
 
+	modifier onlyOwner() {
+		require(msg.sender == owner, "Staking: Only owner can call this function");
+		_;
+	}
+
 	/// @param _owner is the deployer address
 	constructor(address _owner) {
 		owner = _owner;  
 	}
 
-	modifier onlyOwner() {
-		require(msg.sender == owner, "Staking: Only owner can call this function");
-		_;
+	/// @dev penalty applies only if a user unstakes before the `minimumStakingPeriod 30 days`
+    /// @notice checks for zero staked amount 
+    /// @notice deduct penalty from staked amount
+    /// @notice checks if minimum staking period has passed
+    /// @notice reset user staked balance
+    /// @notice transfer staked amount to the user
+	function unstake(uint256 index) external {
+		require(userStakes[msg.sender][index].amount > 0, "Staking: No staked amount");
+		uint256 amountToUnstake = userStakes[msg.sender][index].amount;
+		uint256 penaltyAmount = 0;
+
+		if(block.timestamp < userStakes[msg.sender][index].timeStamp + minimumStakingPeriod) {
+			penaltyAmount = (amountToUnstake * penaltyRate) /100;
+			amountToUnstake -= penaltyAmount;
+		}
+
+		balance[msg.sender] -= userStakes[msg.sender][index].amount;
+		userStakes[msg.sender][index].amount = 0;
+		(bool success, ) = msg.sender.call{value: amountToUnstake} ("");
+		require(success, "Staking: Transfer failed");
+		emit UnStaked( msg.sender, amountToUnstake);
 	}
 
     /// @param _amount is the amount users want to stake
@@ -47,6 +72,13 @@ contract Staking {
 		balance[msg.sender] += _amount;
 		emit Staked(msg.sender, _amount);
 	}
+
+	 /// @dev only owner can change penalty rate
+	 /// @notice penalty rate must be between 0 and 100 
+    function setPenaltyRate(uint256 newPenaltyRate) public onlyOwner {
+    	require(newPenaltyRate <= 100, "Staking: Penalty rate must be between 0 and 100");
+    	penaltyRate = newPenaltyRate;
+    }
     
     /// @dev function returns amount and timeStamp
     /// @param amount represent staked amount

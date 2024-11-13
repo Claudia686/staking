@@ -86,7 +86,5 @@ describe("Staking", () => {
           .to.be.revertedWith("Staking: Amount must be greater than zero")
       })
     })
-
   })
-
 })
