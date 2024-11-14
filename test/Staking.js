@@ -40,14 +40,14 @@ describe("Staking", () => {
       let tx
 
       beforeEach(async () => {
-        // Call stake function
+        // User stake 
         tx = await staking.connect(user).stake(stakedAmount, {
           value: stakedAmount
         });
         await tx.wait()
       })
 
-      // User stakes
+      // User stake
       it("Should let user stake", async () => {
         const [amount, timeStamp] = await staking.getUserStake(user.address, 0);
         expect(amount.toString()).to.equal(stakedAmount.toString());
@@ -58,17 +58,17 @@ describe("Staking", () => {
 
       // Checks for multiple stakes 
       it("Should allow multiple stakes", async () => {
-        const myAmount = ethers.parseUnits("2", "ether");
+        let stakedAmount = ethers.parseUnits("2", "ether");
 
         // First stake
-        const tx1 = await staking.connect(user).stake(myAmount, {
-          value: myAmount
+        const tx1 = await staking.connect(user).stake(stakedAmount, {
+          value: stakedAmount
         });
         await tx1.wait();
 
         // Second stake
-        const tx2 = await staking.connect(user).stake(myAmount, {
-          value: myAmount
+        const tx2 = await staking.connect(user).stake(stakedAmount, {
+          value: stakedAmount
         });
         await tx2.wait();
         const userStakes = await staking.getUserStake(user.address, 0)
@@ -77,13 +77,94 @@ describe("Staking", () => {
     })
 
     describe("Failure", async () => {
-      // Rejects zero amount
-      it("Revert insufficient ETH", async () => {
+      // Rejects zero staked amount
+      it("Revert insufficient staked ETH", async () => {
         const amount = ethers.parseUnits("0", "ether")
         await expect(staking.connect(user).stake(amount, {
             value: amount
           }))
           .to.be.revertedWith("Staking: Amount must be greater than zero")
+      })
+    })
+  })
+
+  describe("Unstaking", async () => {
+    describe("Success", async () => {
+      // Set stake amount
+      stakeAmount = ethers.parseUnits("5", "ether")
+
+      beforeEach(async () => {
+        // Stake
+        const tx = await staking.connect(user).stake(stakeAmount, {
+          value: stakeAmount
+        })
+        await tx.wait()
+      })
+
+      it("Unstakes without penalty after minimum period", async () => {
+        // Set stakeAmount
+        let stakeAmount
+        stakeAmount = ethers.parseUnits("5", "ether")
+        // Stake
+        await staking.connect(user).stake(stakeAmount, {
+          value: stakeAmount
+        })
+
+        // Retrive minimum staking period 
+        const minimumStakingPeriod = (await staking.minimumStakingPeriod()).toString()
+        await ethers.provider.send("evm_increaseTime", [minimumStakingPeriod + 1]);
+        await ethers.provider.send("evm_mine");
+        const amountAfterPenalty = stakeAmount
+
+        // Unstake and verify the event
+        await expect(staking.connect(user).unstake(0))
+          .to.emit(staking, "UnStaked")
+          .withArgs(user.address, amountAfterPenalty);
+      })
+
+      it("Applies 10% penalty if unstaked before minimum period", async () => {
+        // Set amount to stake
+        amountStaked = ethers.parseUnits("10", "ether")
+        // Stake
+        await staking.connect(user).stake(amountStaked, {
+          value: amountStaked
+        })
+
+        // Balance before unstake
+        const balanceBefore = await ethers.provider.getBalance(user.address)
+
+        // Set minimum staking period 
+        const minimumStakingPeriod = (await staking.minimumStakingPeriod()).toString()
+        const halfMinimumPeriodInSeconds = minimumStakingPeriod / 2
+
+        // Increase minimum staking period
+        await ethers.provider.send("evm_increaseTime", [halfMinimumPeriodInSeconds]); 
+        await ethers.provider.send("evm_mine");
+
+        // Set penalty rate to 10%
+        const penaltyRate = 10n
+        const penaltyAmount = (amountStaked * penaltyRate) / 100n
+        const amountAfterPenalty = amountStaked - penaltyAmount;
+
+        // Unstake
+        const tx = await staking.connect(user).unstake(0)
+        await tx.wait()
+
+        // Expected balance after applying 10% penalty
+        const balanceAfterPenalty = balanceBefore - penaltyAmount;
+        expect(balanceAfterPenalty).to.be.lessThan(balanceBefore)
+      })
+    })
+
+    describe("Failure", async () => {
+      // Revert if already unstaked
+      it("Revert if user already unstaked", async () => {
+        const amountStaked = ethers.parseUnits("5", "ether")
+        const tx = await staking.connect(user).stake(amountStaked, {
+          value: amountStaked
+        })
+        const tx1 = await staking.connect(user).unstake(0)
+        await expect(staking.connect(user).unstake(0)).to.be.revertedWith("Staking: No staked amount");
       })
     })
   })
