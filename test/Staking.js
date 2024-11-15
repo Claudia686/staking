@@ -138,7 +138,7 @@ describe("Staking", () => {
         const halfMinimumPeriodInSeconds = minimumStakingPeriod / 2
 
         // Increase minimum staking period
-        await ethers.provider.send("evm_increaseTime", [halfMinimumPeriodInSeconds]); 
+        await ethers.provider.send("evm_increaseTime", [halfMinimumPeriodInSeconds]);
         await ethers.provider.send("evm_mine");
 
         // Set penalty rate to 10%
@@ -164,7 +164,34 @@ describe("Staking", () => {
           value: amountStaked
         })
         const tx1 = await staking.connect(user).unstake(0)
-        await expect(staking.connect(user).unstake(0)).to.be.revertedWith("Staking: No staked amount");
+        await expect(staking.connect(user).unstake(0))
+          .to.be.revertedWith("Staking: No staked amount");
+      })
+    })
+  })
+
+  describe("Set penalty rate", async () => {
+    describe("Success", async () => {
+      // Deployer change penalty rate to 5
+      it("Should allow owner to change the penalty rate", async () => {
+        const newPenaltyRate = 5
+        await staking.connect(deployer).setPenaltyRate(newPenaltyRate)
+      })
+    })
+
+    describe("Failure", async () => {
+      // Deployer change penalty rate above 100
+      it("Reverts if penalty rate is above 100", async () => {
+        const invalidPenaltyRate = 101
+        await expect(staking.connect(deployer).setPenaltyRate(invalidPenaltyRate))
+          .to.be.revertedWith("Staking: Penalty rate must be between 1 and 100");
+      })
+
+      // Rejects non-owner trying to set penalty rate
+      it("Reverts when a non-owner attempts to set the penalty rate", async () => {
+        const penaltyRate = 5
+        await expect(staking.connect(user).setPenaltyRate(penaltyRate))
+          .to.be.revertedWith("Staking: Only owner can call this function");
       })
     })
   })

@@ -76,7 +76,7 @@ contract Staking {
 	 /// @dev only owner can change penalty rate
 	 /// @notice penalty rate must be between 0 and 100 
     function setPenaltyRate(uint256 newPenaltyRate) public onlyOwner {
-    	require(newPenaltyRate <= 100, "Staking: Penalty rate must be between 0 and 100");
+    	require(newPenaltyRate <= 100, "Staking: Penalty rate must be between 1 and 100");
     	penaltyRate = newPenaltyRate;
     }
     
