@@ -94,7 +94,7 @@ contract Staking {
     /// @param amount represent staked amount
     /// @param timeStamp represent time of staking 
 	function getUserStake(address _user, uint256 index) public view returns (
-	    uint256 amount, 
+	    uint256 amount,
 		uint256 timeStamp
 	) {
 		Stake memory userStake = userStakes[_user][index];
