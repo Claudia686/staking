@@ -33,7 +33,7 @@ describe("Staking", () => {
     })
   })
 
-  describe("Staking", async () => {
+  describe("Staking", () => {
     describe("Success", async () => {
       // Sets staked amount for staking
       const stakedAmount = ethers.parseUnits("2", "ether");
@@ -88,7 +88,7 @@ describe("Staking", () => {
     })
   })
 
-  describe("Unstaking", async () => {
+  describe("Unstaking", () => {
     describe("Success", async () => {
       // Set stake amount
       stakeAmount = ethers.parseUnits("5", "ether")
@@ -170,7 +170,7 @@ describe("Staking", () => {
     })
   })
 
-  describe("Set penalty rate", async () => {
+  describe("Set penalty rate", () => {
     describe("Success", async () => {
       // Deployer change penalty rate to 5
       it("Should allow owner to change the penalty rate", async () => {
