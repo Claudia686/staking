@@ -11,6 +11,7 @@ contract RewardToken is ERC20, Ownable {
     constructor(address initialOwner) ERC20("RewardToken", "RWD") Ownable(initialOwner) {
     	require(initialOwner != address(0), "RewardToken: Invalid owner address");
     	 _transferOwnership(initialOwner);
+    	 _transferOwnership(initialOwner);
     }
 
     /// @dev Mints tokens to a specified address

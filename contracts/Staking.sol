@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/// @dev imports from RewardToken contract, 
+/// an ERC20 contract used for rewarding users
+import "./RewardToken.sol";
+
 contract Staking {
+	RewardToken public rewardToken;
 	address public owner;
 	uint256 public minimumStakingPeriod = 60 days;  
 	uint256 public penaltyRate = 10; 
@@ -29,11 +34,14 @@ contract Staking {
 	}
 
 	/// @param _owner is the deployer address
-	constructor(address _owner) {
+	/// @param _rewardTokenAddress is the rewardToken address
+	constructor(address _owner, address _rewardTokenAddress) {
 		owner = _owner;  
+		rewardToken = RewardToken(_rewardTokenAddress);
 	}
 
-	/// @dev penalty applies only if a user unstakes before the `minimumStakingPeriod 30 days`
+	/// @dev penalty applies only if a user unstakes before the `minimumStakingPeriod 60 days`
+	/// @dev user receive one ERC20 token if unstake after `minimumStakingPeriod 60 days`
     /// @notice checks for zero staked amount 
     /// @notice deduct penalty from staked amount
     /// @notice checks if minimum staking period has passed
@@ -44,9 +52,11 @@ contract Staking {
 		uint256 amountToUnstake = userStakes[msg.sender][index].amount;
 		uint256 penaltyAmount = 0;
 
-		if(block.timestamp < userStakes[msg.sender][index].timeStamp + minimumStakingPeriod) {
+		if (block.timestamp < userStakes[msg.sender][index].timeStamp + minimumStakingPeriod) {
 			penaltyAmount = (amountToUnstake * penaltyRate) /100;
 			amountToUnstake -= penaltyAmount;
+		 } else {
+			rewardToken.mint(msg.sender, 1 ether);
 		}
 
 		balance[msg.sender] -= userStakes[msg.sender][index].amount;
@@ -74,7 +84,7 @@ contract Staking {
 	}
 
 	 /// @dev only owner can change penalty rate
-	 /// @notice penalty rate must be between 0 and 100 
+	 /// @notice penalty rate must be between 1 and 100 
     function setPenaltyRate(uint256 newPenaltyRate) public onlyOwner {
     	require(newPenaltyRate <= 100, "Staking: Penalty rate must be between 1 and 100");
     	penaltyRate = newPenaltyRate;

@@ -6,20 +6,32 @@ const {
 } = require("hardhat");
 
 describe("Staking", () => {
-  let staking, deployer, user;
+  let staking, rewardToken, deployer, user;
 
   beforeEach(async () => {
-    [deployer, user] = await ethers.getSigners();
+    [deployer, user, initialOwner] = await ethers.getSigners();
 
+    //Depoy rewardToken
+    const RewardToken = await ethers.getContractFactory("RewardToken")
+    rewardToken = await RewardToken.deploy(deployer.address)
+    await rewardToken.waitForDeployment()
+
+    // Deploy staking
     const Staking = await ethers.getContractFactory("Staking");
-    staking = await Staking.deploy(deployer.address);
+    staking = await Staking.deploy(deployer.address, rewardToken.target);
     await staking.waitForDeployment();
+    await rewardToken.transferOwnership(staking.target)
+
   })
 
   describe("Deployment", () => {
-    // Checks for the owner
-    it("Set the owner", async () => {
+    it("Set the owner and reward token", async () => {
+      // Checks for the rewardToken
+      expect(await staking.rewardToken()).to.equal(rewardToken.target);
+      // Checks for staking owner
       expect(await staking.owner()).to.equal(deployer.address);
+      // Checks for the rewardToken owner
+      expect(await rewardToken.owner()).to.equal(staking.target);
     })
 
     // Checks for staking period
@@ -101,7 +113,7 @@ describe("Staking", () => {
         await tx.wait()
       })
 
-      it("Unstakes without penalty after minimum period", async () => {
+      it("Unstakes without penalty after minimum period and mints token", async () => {
         // Set stakeAmount
         let stakeAmount
         stakeAmount = ethers.parseUnits("5", "ether")
@@ -116,10 +128,17 @@ describe("Staking", () => {
         await ethers.provider.send("evm_mine");
         const amountAfterPenalty = stakeAmount
 
+        // Check for user balance before minting
+        const balanceBeforeMinting = await rewardToken.balanceOf(user.address)
+
         // Unstake and verify the event
         await expect(staking.connect(user).unstake(0))
           .to.emit(staking, "UnStaked")
           .withArgs(user.address, amountAfterPenalty);
+
+        // Check for user balance after minting
+        const balanceAfterMinting = await rewardToken.balanceOf(user.address)
+        expect(balanceAfterMinting).to.be.greaterThan(balanceBeforeMinting);
       })
 
       it("Applies 10% penalty if unstaked before minimum period", async () => {
